@@ -1,0 +1,5 @@
+groq
+py-cord
+requests
+tavily-python
+duckduckgo-search
