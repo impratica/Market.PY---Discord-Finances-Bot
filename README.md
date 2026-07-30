@@ -34,7 +34,4 @@ Example:
 
 Python 3.10+
 
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
+Dependencies are listed in `requirements.txt`.
