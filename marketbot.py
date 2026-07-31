@@ -1,27 +1,36 @@
+import os
 import re
 import time
-import groq
 import discord
+import groq
 import requests
-from tavily import TavilyClient
+from dotenv import load_dotenv
 from duckduckgo_search import DDGS
+from tavily import TavilyClient
 
-groq_API = "insert"
-discord_TOKEN = "instert"
-twelve_API = "insert"
-alphaAD_API = "insert"
-gNews_API = "insert"
-tavily_API = "insert"
+# Load environment variables from a .env file (if present)
+load_dotenv()
 
-groq_client = groq.Groq(api_key=groq_API)
+# --- API KEYS & CONFIGURATION ---
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
+# Initialize Groq Client
+groq_client = groq.Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
+# Initialize Tavily Client
 tavily_client = None
-if tavily_API and not tavily_API.startswith("tvly-YOUR"):
+if TAVILY_API_KEY and not TAVILY_API_KEY.startswith("tvly-YOUR"):
     try:
-        tavily_client = TavilyClient(api_key=tavily_API)
+        tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
     except Exception as e:
         print(f"[Init Warning] Tavily client failed: {e}")
 
+# --- DICTIONARIES & MAPPINGS ---
 ticker_aliases = {
     "APPL": "AAPL",
     "APPLE": "AAPL",
@@ -38,15 +47,13 @@ ticker_aliases = {
 
 crypto_symbols = {"BTC", "ETH", "SOL", "DOGE", "XRP", "ADA", "AVAX", "DOT"}
 
-
-def fix_ticker(symbol):
+# --- HELPER FUNCTIONS ---
+def fix_ticker(symbol: str) -> str:
     symbol = symbol.upper()
-    if symbol in ticker_aliases:
-        return ticker_aliases[symbol]
-    return symbol
+    return ticker_aliases.get(symbol, symbol)
 
 
-def detect_ticker_in_text(text):
+def detect_ticker_in_text(text: str):
     words = re.findall(r'\b[A-Za-z0-9]+\b', text.upper())
     for word in words:
         if word in ticker_aliases:
@@ -57,7 +64,7 @@ def detect_ticker_in_text(text):
     return None
 
 
-def clean_response(text):
+def clean_response(text: str) -> str:
     if len(text) > 1700:
         text = text[:1700]
 
@@ -69,25 +76,25 @@ def clean_response(text):
     return text.strip()
 
 
-def extract_logs_flag(text):
+def extract_logs_flag(text: str):
     pattern = r'--LOGS\b'
     show_logs = bool(re.search(pattern, text, re.IGNORECASE))
     clean_text = re.sub(pattern, '', text, flags=re.IGNORECASE).strip()
     return clean_text, show_logs
 
 
-def perform_live_web_search(user_query, logs_list):
+def perform_live_web_search(user_query: str, logs_list: list) -> str:
     enforced_query = f"{user_query} current latest 2026 specs price official"
-    logs_list.append(f"🔍 [Search Engine 2026] Executing query: '{enforced_query}'")
+    logs_list.append(f"🔍 [Search Engine] Executing query: '{enforced_query}'")
     search_context = []
-    
+
     if tavily_client:
         try:
             start_time = time.time()
             res = tavily_client.search(query=enforced_query, max_results=4)
             elapsed = round(time.time() - start_time, 2)
             results = res.get("results", [])
-            
+
             if results:
                 logs_list.append(f"✅ [Tavily API] Success in {elapsed}s | Retrieved {len(results)} fresh sources")
                 for item in results:
@@ -99,13 +106,13 @@ def perform_live_web_search(user_query, logs_list):
         except Exception as e:
             logs_list.append(f"❌ [Tavily API] Error: {e}. Trying DuckDuckGo...")
     else:
-        logs_list.append("ℹ️ [Tavily API] Client unconfigured. Using DuckDuckGo...")
+        logs_list.append("ℹ️ [Tavily API] Unconfigured/Inactive. Using DuckDuckGo...")
 
     try:
         start_time = time.time()
         ddg_results = list(DDGS().text(enforced_query, max_results=4))
         elapsed = round(time.time() - start_time, 2)
-        
+
         if ddg_results:
             logs_list.append(f"✅ [DuckDuckGo API] Success in {elapsed}s | Retrieved {len(ddg_results)} fresh sources")
             for item in ddg_results:
@@ -120,14 +127,18 @@ def perform_live_web_search(user_query, logs_list):
     return "No live web context retrieved."
 
 
-def get_price(symbol, logs_list):
+def get_price(symbol: str, logs_list: list) -> dict:
     query_symbol = f"{symbol}/USD" if symbol in crypto_symbols else symbol
     logs_list.append(f"📈 [Twelve Data] Fetching price for {query_symbol}")
+
+    if not TWELVE_DATA_API_KEY:
+        logs_list.append("⚠️ [Twelve Data] API Key missing.")
+        return {"symbol": symbol, "price": "Unavailable"}
 
     try:
         response = requests.get(
             "https://api.twelvedata.com/price",
-            params={"symbol": query_symbol, "apikey": twelve_API},
+            params={"symbol": query_symbol, "apikey": TWELVE_DATA_API_KEY},
             timeout=5
         )
         data = response.json()
@@ -139,13 +150,17 @@ def get_price(symbol, logs_list):
         return {"symbol": symbol, "price": "Unavailable"}
 
 
-def get_alpha_news(symbol, logs_list):
+def get_alpha_news(symbol: str, logs_list: list) -> list:
     logs_list.append(f"📰 [Alpha Vantage] Fetching news for {symbol}")
+
+    if not ALPHA_VANTAGE_API_KEY:
+        logs_list.append("⚠️ [Alpha Vantage] API Key missing.")
+        return []
 
     try:
         response = requests.get(
             "https://www.alphavantage.co/query",
-            params={"function": "NEWS_SENTIMENT", "tickers": symbol, "apikey": alphaAD_API},
+            params={"function": "NEWS_SENTIMENT", "tickers": symbol, "apikey": ALPHA_VANTAGE_API_KEY},
             timeout=5
         )
         data = response.json()
@@ -159,13 +174,17 @@ def get_alpha_news(symbol, logs_list):
         return []
 
 
-def get_gnews(symbol, logs_list):
+def get_gnews(symbol: str, logs_list: list) -> list:
     logs_list.append(f"🌐 [GNews] Fetching extra news for {symbol}")
+
+    if not GNEWS_API_KEY:
+        logs_list.append("⚠️ [GNews] API Key missing.")
+        return []
 
     try:
         response = requests.get(
             "https://gnews.io/api/v4/search",
-            params={"q": f"{symbol} market", "token": gNews_API, "lang": "en", "max": 2},
+            params={"q": f"{symbol} market", "token": GNEWS_API_KEY, "lang": "en", "max": 2},
             timeout=5
         )
         data = response.json()
@@ -179,6 +198,7 @@ def get_gnews(symbol, logs_list):
         return []
 
 
+# --- DISCORD BOT INIT ---
 bot = discord.Bot()
 
 
@@ -215,11 +235,10 @@ async def analyze(ctx, symbol: str):
         web_query = f"{resolved_symbol} stock crypto current market status news"
         live_web_context = perform_live_web_search(web_query, logs)
 
-        logs.append("🤖 [Groq API] Generating response via openai/gpt-oss-120b...")
+        logs.append("🤖 [Groq API] Generating response via llama-3.3-70b-versatile...")
         start_llm = time.time()
 
         response = groq_client.chat.completions.create(
-
             model="llama-3.3-70b-versatile",
             max_tokens=450,
             messages=[
@@ -231,7 +250,7 @@ You are Market.PY, a sharp, conversational financial market bot on Discord.
 TEMPORAL ANCHOR: THE CURRENT YEAR IS STRICTLY 2026.
 
 STRICT LAWS:
-1. MANDATORY 2026 ACCURACY: Treat all products already released (such as the iPhone 17 series or Xiaomi 17 series) as officially launched. DO NOT frame current post-launch tech as "rumors" or "leaks".
+1. MANDATORY 2026 ACCURACY: Treat all products already released as officially launched. DO NOT frame current post-launch tech as "rumors" or "leaks".
 2. SINGLE MESSAGE & SPEECH COMPLETION: Always complete your thoughts fully. Your final sentence MUST end cleanly with proper punctuation (. ! ?).
 3. GROUNDING & DATA ACCURACY: Rely strictly on the provided Price Data, API News Data, and Live Web Search Context. Never state outdated training-memory facts.
 4. LANGUAGE MATCH: Always reply in the exact same language as the user's input/context.
@@ -298,11 +317,11 @@ async def ask(ctx, question: str):
 
         live_web_context = perform_live_web_search(clean_question, logs)
 
-        logs.append("🤖 [Groq API] Generating response via openai/gpt-oss-120b...")
+        logs.append("🤖 [Groq API] Generating response via llama-3.3-70b-versatile...")
         start_llm = time.time()
 
         response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             max_tokens=450,
             messages=[
                 {
@@ -313,7 +332,7 @@ You are Market.PY, a conversational Discord chatbot who loves crypto, stocks, an
 TEMPORAL ANCHOR: THE CURRENT YEAR IS STRICTLY 2026.
 
 RESPONSE LAWS:
-1. 2026 REALITY CHECK: Devices launched in late 2025/early 2026 (e.g. iPhone 17 series, Xiaomi 17 Ultra) are officially released hardware. Never refer to them as "upcoming rumors" or "unannounced leaks".
+1. 2026 REALITY CHECK: Devices launched in late 2025/early 2026 are officially released hardware. Never refer to them as "upcoming rumors" or "unannounced leaks".
 2. MANDATORY LIVE GROUNDING: Always answer using the provided Live Web Context and Market API Context. NEVER guess, estimate, or state product releases or specs from old internal training memory.
 3. SPEECH COMPLETION & SINGLE MESSAGE: Always complete your speech fully. The final sentence MUST end cleanly on a finished thought with proper punctuation (. ! ?).
 4. MULTI-LANGUAGE: Reply in the exact same language as the user's question.
@@ -352,5 +371,11 @@ Live Web Search Context:
         await ctx.followup.send(f"❌ Error: {e}")
 
 
-print("Starting Market.PY...")
-bot.run(discord_TOKEN)
+# --- STARTUP CHECK ---
+if __name__ == "__main__":
+    if not DISCORD_TOKEN or not GROQ_API_KEY:
+        print("❌ Error: Missing DISCORD_TOKEN or GROQ_API_KEY in environment variables.")
+        print("Please configure your .env file before running.")
+    else:
+        print("Starting Market.PY... MADE BY COFFEE github: justcoffee discord: coffeewhitmilk123")
+        bot.run(DISCORD_TOKEN)
