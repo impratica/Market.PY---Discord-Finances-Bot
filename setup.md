@@ -4,23 +4,23 @@ This guide explains how to install, configure, and run Market.PY.
 
 ## Requirements
 
-Before starting, make sure you have:
+Before running Market.PY, make sure you have:
 
 - Python 3.10 or newer
 - A Discord account
-- A Discord application with a bot created
+- A Discord Developer Application
 - Required API keys
 
-## 1. Clone the Repository
+## Installation
+
+Clone the repository:
 
 ```bash
 git clone <repository-url>
 cd Market.PY
 ```
 
-## 2. Install Dependencies
-
-Install all required Python packages from `requirements.txt`.
+Install all required Python packages:
 
 ### Windows
 
@@ -46,86 +46,202 @@ python3 -m pip install -r requirements.txt
 python3 -m pip install -r requirements.txt
 ```
 
-## 3. Create a Discord Bot
+---
+
+# Environment Configuration
+
+Market.PY uses environment variables to store private credentials such as Discord tokens and API keys.
+
+The project includes an `.env.example` file. This file is a template and does not contain real keys.
+
+## Scenario 1: New User Setup
+
+If you downloaded or cloned Market.PY for the first time:
+
+Create your local `.env` file from the template:
+
+```bash
+cp .env.example .env
+```
+
+Open the new `.env` file and replace the placeholders with your own credentials:
+
+```env
+DISCORD_TOKEN=your_discord_token_here
+GROQ_API_KEY=your_groq_api_key_here
+TWELVE_DATA_API_KEY=your_twelve_data_key_here
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+GNEWS_API_KEY=your_gnews_key_here
+TAVILY_API_KEY=your_tavily_key_here
+```
+
+You must provide your own API keys. Market.PY does not include any private credentials.
+
+---
+
+## Scenario 2: Developer Setup
+
+If you are developing or testing Market.PY locally:
+
+Create your own `.env` file in the project folder:
+
+```text
+Market.PY/
+├── marketbot.py
+├── README.md
+├── SETUP.md
+├── requirements.txt
+└── .env
+```
+
+Your `.env` file should contain your real keys:
+
+```env
+DISCORD_TOKEN=your_real_discord_token
+GROQ_API_KEY=your_real_groq_key
+TWELVE_DATA_API_KEY=your_real_twelve_data_key
+ALPHA_VANTAGE_API_KEY=your_real_alpha_vantage_key
+GNEWS_API_KEY=your_real_gnews_key
+TAVILY_API_KEY=your_real_tavily_key
+```
+
+Never upload this file to GitHub.
+
+The `.env` file is only for your local machine.
+
+---
+
+# Creating a Discord Bot
 
 1. Go to the Discord Developer Portal.
 2. Create a new application.
-3. Open the **Bot** section.
+3. Open the Bot section.
 4. Create a bot user.
-5. Copy the bot token.
-6. Enable the required intents if needed.
-7. Invite the bot to your server with the required permissions.
+5. Copy your bot token.
+6. Invite the bot to your Discord server.
+7. Give it the required permissions.
 
-## 4. Configure API Keys
+---
 
-Market.PY requires external services for market data, news, search, and AI features.
+# API Services
 
-Required services may include:
+Market.PY uses multiple external services:
 
-- Discord Bot Token
-- Twelve Data API
-- Alpha Vantage API
-- GNews API
-- Tavily API
-- LLM provider API key
+## Groq
 
-Add your keys to the configuration method used by the project.
+Used for AI-generated market explanations.
 
-Example:
+Required:
 
-```python
-DISCORD_TOKEN = "your_token_here"
-API_KEY = "your_api_key_here"
+```text
+GROQ_API_KEY
 ```
 
-Do not share your API keys publicly.
+## Twelve Data
 
-## 5. Running the Bot
+Used for live stock and cryptocurrency prices.
+
+Required:
+
+```text
+TWELVE_DATA_API_KEY
+```
+
+## Alpha Vantage
+
+Used for financial news.
+
+Required:
+
+```text
+ALPHA_VANTAGE_API_KEY
+```
+
+## GNews
+
+Used for additional news sources.
+
+Required:
+
+```text
+GNEWS_API_KEY
+```
+
+## Tavily
+
+Used for live web search context.
+
+Required:
+
+```text
+TAVILY_API_KEY
+```
+
+---
+
+# Running Market.PY
 
 Start the bot with:
 
 ```bash
-python main.py
+python marketbot.py
 ```
 
 or:
 
 ```bash
-python3 main.py
+python3 marketbot.py
 ```
 
-If successful, the bot should log in and become available in your Discord server.
+If the configuration is correct, the bot will connect to Discord and register its commands.
 
-## Troubleshooting
+---
 
-### Bot does not start
+# Troubleshooting
 
-Check that:
+## Bot does not start
 
-- Python is installed correctly
-- Dependencies were installed
-- The Discord token is valid
-- API keys are configured correctly
+Check:
 
-### Commands do not appear
+- Python version is 3.10+
+- Dependencies are installed
+- `.env` exists
+- Discord token is valid
+- API keys are correct
 
-Check that:
+## Slash commands do not appear
 
-- The bot was invited with the correct permissions
-- Slash commands are enabled
+Check:
+
+- The bot was invited correctly
+- The bot has permission to use applications commands
 - The bot is connected to the correct server
 
-### API errors
+## API errors
 
-Most API errors are caused by:
+Common causes:
 
 - Missing API keys
-- Invalid keys
+- Invalid API keys
 - API rate limits
-- Incorrect configuration
+- Incorrect environment configuration
 
-Verify your credentials before reporting an issue.
+Verify your `.env` file before reporting issues.
 
-## Development Notes
+---
 
-Market.PY depends on external APIs and services. A fresh installation requires configuration before it can run.
+# Security
+
+Never upload:
+
+- `.env`
+- Discord tokens
+- API keys
+
+Only upload:
+
+- `.env.example`
+- Source code
+- Documentation
+
+Compromised API keys should be revoked immediately.
