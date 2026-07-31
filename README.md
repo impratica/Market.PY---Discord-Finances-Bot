@@ -81,3 +81,15 @@ Most startup issues are caused by missing or invalid API keys, an invalid Discor
 
 Please confirm your configuration before opening an issue.
 
+## Known Issues
+
+### Creator Identity Hallucination
+
+Market.PY may incorrectly describe its creator when asked about its origin.
+
+Although explicit creator information is provided to the model, it may occasionally generate false details, such as claiming that Market.PY was created by a fictional "team of developers interested in Python and crypto."
+
+This is a known LLM hallucination issue. The generated response should not be considered a reliable source for project ownership or authorship.
+
+For accurate information, refer to this repository and its documentation.
+
